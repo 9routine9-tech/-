@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>반수생 첫수업 피드백 (상용화 버전)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .radio-btn-checked { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .radio-btn-unchecked { background-color: white; color: #4b5563; border-color: #d1d5db; }
+        button, label { -webkit-tap-highlight-color: transparent; }
+        
+        /* 스크롤바 숨기기 용도 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+
+    <!-- Firebase SDK 로드 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.Firebase = {
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken,
+            getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc
+        };
+    </script>
+</head>
+<body>
+    <div id="root">
+        <div style="display:flex; justify-content:center; align-items:center; height:100vh; padding-top:20vh; color:#6b7280;">
+            시스템을 초기화하고 있습니다...
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const Icons = {
+            GraduationCap: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+            LogIn: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>,
+            Shield: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+            Book: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>,
+            CheckCircle: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            User: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            ArrowLeft: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+            LogOut: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            Edit: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            X: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+            Target: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+            Briefcase: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+            Search: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+            Loader2: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>,
+            RefreshCw: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
+            Trash2: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
+            Info: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        };
+
+        const App = () => {
+            const [fbUser, setFbUser] = useState(null);
+            const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+            const [db, setDb] = useState(null);
+            const [appId, setAppId] = useState('default-app-id');
+
+            const [currentUser, setCurrentUser] = useState(null); 
+            const [view, setView] = useState('login'); 
+            const [feedbacks, setFeedbacks] = useState([]); 
+            const [selectedSubject, setSelectedSubject] = useState(null); 
+            const [toastMsg, setToastMsg] = useState('');
+
+            const subjects = ['국어', '수학', '영어', '탐구1', '탐구2'];
+            const specialSubjects = ['매일깨기', '원장님 상담'];
+            const inquiryOptions = ['물리', '화학', '생명', '지구', '사문', '생윤', '윤사', '한지', '세지', '동사', '세사', '정법', '기타'];
+
+            const showToast = (msg) => {
+                setToastMsg(msg);
+                setTimeout(() => setToastMsg(''), 3000);
+            };
+
+            // 부서 판단 로직
+            const calculateDepartment = (roomStr) => {
+                const room = parseInt(roomStr, 10);
+                if (isNaN(room)) return '미분류';
+                if (room >= 301 && room <= 602) return '교무2부';
+                if (room >= 603 && room <= 903) return '교무1부';
+                return '미분류';
+            };
+
+            useEffect(() => {
+                const setupFirebase = async () => {
+                    try {
+                        const MY_FIREBASE_CONFIG = {
+                            apiKey: "AIzaSyAcl9HQ-waEKeMndEEoRosQlSs9j1DCiTw",
+                            authDomain: "kangan-first-week.firebaseapp.com",
+                            projectId: "kangan-first-week",
+                            storageBucket: "kangan-first-week.firebasestorage.app",
+                            messagingSenderId: "628326605831",
+                            appId: "1:628326605831:web:ed9ca43858240b11a0b6a2"
+                        };
+
+                        let firebaseConfig = MY_FIREBASE_CONFIG;
+                        let isCustomConfig = true;
+                        
+                        if (!firebaseConfig && typeof __firebase_config !== 'undefined' && __firebase_config) {
+                            firebaseConfig = JSON.parse(__firebase_config);
+                            isCustomConfig = false;
+                        }
+
+                        if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
+                            const app = window.Firebase.initializeApp(firebaseConfig);
+                            const auth = window.Firebase.getAuth(app);
+                            const firestoreDb = window.Firebase.getFirestore(app);
+                            
+                            if (typeof __app_id !== 'undefined') {
+                                setAppId(__app_id);
+                            }
+
+                            try {
+                                if (!isCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    await window.Firebase.signInWithCustomToken(auth, __initial_auth_token);
+                                } else {
+                                    await window.Firebase.signInAnonymously(auth);
+                                }
+                                
+                                setDb(firestoreDb);
+                                window.Firebase.onAuthStateChanged(auth, (user) => {
+                                    setFbUser(user);
+                                    setIsFirebaseReady(true);
+                                });
+                            } catch (authError) {
+                                console.warn("Firebase 인증 준비 안됨. 오프라인 모드로 우회합니다.");
+                                setDb(null); 
+                                setIsFirebaseReady(true);
+                            }
+                        } else {
+                            setDb(null);
+                            setIsFirebaseReady(true);
+                        }
+                    } catch (error) {
+                        setDb(null);
+                        setIsFirebaseReady(true); 
+                    }
+                };
+                setupFirebase();
+            }, []);
+
+            useEffect(() => {
+                if (db && fbUser) {
+                    const colRef = window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
+                    const unsubscribe = window.Firebase.onSnapshot(colRef, (snapshot) => {
+                        const data = [];
+                        snapshot.forEach(doc => { data.push({ id: doc.id, ...doc.data() }); });
+                        setFeedbacks(data);
+                    }, (error) => {
+                        console.error("Firestore 에러:", error);
+                    });
+                    return () => unsubscribe();
+                } else if (isFirebaseReady && !db) {
+                    const savedData = localStorage.getItem('onboardingFeedbacks');
+                    if (savedData) setFeedbacks(JSON.parse(savedData));
+                }
+            }, [fbUser, db, appId, isFirebaseReady]);
+
+            useEffect(() => {
+                if (currentUser) {
+                    setView(currentUser.role === 'teacher' ? 'teacher_dash' : 'student_dash');
+                } else {
+                    setView('login');
+                }
+            }, [currentUser]);
+
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setView('login');
+                showToast('로그아웃 되었습니다.');
+            };
+
+            const LoginView = () => {
+                const [loginType, setLoginType] = useState('student');
+                const [name, setName] = useState('');
+                const [password, setPassword] = useState('');
+
+                const handleLogin = (e) => {
+                    e.preventDefault();
+                    const cleanName = name.trim();
+                    const cleanPassword = password.trim();
+
+                    if (loginType === 'teacher') {
+                        if (cleanName === '강안교육' && cleanPassword === '5025') {
+                            setCurrentUser({ role: 'teacher', name: '강안교육', key: 'admin' });
+                        } else {
+                            showToast('관리자 아이디/비밀번호 오류');
+                        }
+                    } else {
+                        if (cleanName.length < 2 || cleanPassword.length < 1) {
+                            showToast('이름과 출결번호를 정확히 입력해주세요.'); return;
+                        }
+                        setCurrentUser({ role: 'student', name: cleanName, key: `${cleanName}-${cleanPassword}` });
+                    }
+                };
+
+                return (
+                    <div className="max-w-md mx-auto mt-16 bg-white p-8 rounded-xl shadow-lg fade-in border border-gray-100">
+                        <div className="text-center mb-6">
+                            <div className="bg-blue-100 text-blue-600 p-3 rounded-full inline-flex items-center justify-center mb-3">
+                                <Icons.GraduationCap size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800">통합 로그인</h2>
+                            <p className="text-gray-500 text-sm mt-1">반수생 첫수업 피드백 시스템</p>
+                        </div>
+
+                        <div className="flex mb-6 bg-gray-100 p-1 rounded-lg">
+                            <button type="button" onClick={() => { setLoginType('student'); setName(''); setPassword(''); }} className={`flex-1 py-2 text-sm font-bold rounded-md transition ${loginType === 'student' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>학생 접속</button>
+                            <button type="button" onClick={() => { setLoginType('teacher'); setName(''); setPassword(''); }} className={`flex-1 py-2 text-sm font-bold rounded-md transition ${loginType === 'teacher' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>관리자 접속</button>
+                        </div>
+
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{loginType === 'student' ? '이름 (ID)' : '관리자 ID'}</label>
+                                <input type="text" required value={name} onChange={e=>setName(e.target.value)} placeholder={loginType === 'student' ? "홍길동" : "강안교육"} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{loginType === 'student' ? '출결번호 (PW)' : '관리자 비밀번호'}</label>
+                                <input type="password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder={loginType === 'student' ? "예: 1234" : "****"} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </div>
+                            <button type="submit" className={`w-full text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 ${loginType === 'student' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                                {loginType === 'student' ? <Icons.LogIn size={18} /> : <Icons.Shield size={18} />} 로그인
+                            </button>
+                        </form>
+                    </div>
+                );
+            };
+
+            const StudentDashboard = () => {
+                const myFeedbacks = feedbacks.filter(f => f.studentKey === currentUser.key);
+                const profileStatus = myFeedbacks.find(f => f.subject === 'profile');
+                const hasProfile = !!profileStatus;
+
+                const getSubjectStatus = (subject) => myFeedbacks.find(f => f.subject === subject);
+
+                const handleSubjectClick = (subject) => {
+                    if (!hasProfile) {
+                        showToast('상단의 [학생 기본 정보]를 먼저 저장해주세요.');
+                        return;
+                    }
+                    setSelectedSubject(subject);
+                    setView('form');
+                };
+
+                return (
+                    <div className="max-w-2xl mx-auto mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100 fade-in">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">반수생 첫수업 피드백</h2>
+                                <p className="text-green-600 font-bold text-sm mt-1">{currentUser.name}님, 환영합니다.</p>
+                            </div>
+                            <button onClick={handleLogout} className="text-gray-400 hover:text-gray-700 flex items-center gap-1 text-sm bg-gray-50 px-3 py-2 rounded-lg transition">
+                                <Icons.LogOut size={16} /> 로그아웃
+                            </button>
+                        </div>
+
+                        {/* 기본 정보 설정 섹션 */}
+                        <div className={`mb-8 p-5 rounded-xl border-2 transition ${hasProfile ? 'border-blue-100 bg-blue-50' : 'border-green-200 bg-green-50 shadow-md'}`}>
+                            <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Icons.User size={20} className={hasProfile ? "text-blue-600" : "text-green-600"} />
+                                    <h3 className="font-bold text-lg text-gray-800">학생 기본 정보 (필수)</h3>
+                                </div>
+                                {hasProfile ? (
+                                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Icons.CheckCircle size={12} /> 저장됨</span>
+                                ) : (
+                                    <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">입력 필요</span>
+                                )}
+                            </div>
+                            
+                            {hasProfile ? (
+                                <div className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-blue-100 flex flex-wrap gap-x-6 gap-y-2">
+                                    <p><span className="text-gray-400 mr-2">학생 이름</span> <b>{profileStatus.studentName}</b></p>
+                                    <p><span className="text-gray-400 mr-2">첫 등원일</span> <b>{profileStatus.firstDate}</b></p>
+                                    <p><span className="text-gray-400 mr-2">강의실</span> <b>{profileStatus.room}호 ({profileStatus.department})</b></p>
+                                    
+                                    <button onClick={() => { setSelectedSubject('profile'); setView('form'); }} className="w-full mt-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-1.5 rounded-md transition text-xs flex items-center justify-center gap-1">
+                                        <Icons.Edit size={14} /> 정보 수정
+                                    </button>
+                                </div>
+                            ) : (
+                                <div>
+                                    <p className="text-sm text-green-700 mb-3">하단 교과목 피드백을 작성하기 위해 반드시 먼저 입력해주세요.</p>
+                                    <button onClick={() => { setSelectedSubject('profile'); setView('form'); }} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-lg transition text-sm shadow">
+                                        기본 정보 입력하기
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mb-4 pb-2 border-b">
+                            <h2 className="text-xl font-bold text-gray-800">교과목 피드백</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                            {subjects.map(subject => {
+                                const status = getSubjectStatus(subject);
+                                const isCompleted = !!status;
+
+                                return (
+                                    <div key={subject} className={`p-5 rounded-xl border-2 transition ${isCompleted ? 'border-green-100 bg-green-50' : 'border-gray-100 bg-white'} ${!hasProfile && !isCompleted ? 'opacity-60 grayscale' : 'hover:border-blue-200 cursor-pointer'}`} onClick={() => !isCompleted && handleSubjectClick(subject)}>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <Icons.Book size={20} className={isCompleted ? "text-green-600" : "text-blue-500"} />
+                                                <h3 className="font-bold text-lg text-gray-800">{subject}</h3>
+                                            </div>
+                                            {isCompleted ? (
+                                                <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Icons.CheckCircle size={12} /> 작성완료</span>
+                                            ) : (
+                                                <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded-full">미작성</span>
+                                            )}
+                                        </div>
+                                        
+                                        {isCompleted ? (
+                                            <div className="text-sm text-gray-600 bg-white p-3 rounded-lg bg-opacity-60 border border-green-100">
+                                                <p><span className="text-gray-400 mr-2">수업일자</span> {status.date}</p>
+                                                <p className="mt-1"><span className="text-gray-400 mr-2">{subjects.includes(subject) ? '상담진행' : '우선상담'}</span> {status.wantsCounseling ? <span className={subjects.includes(subject) ? "text-blue-600 font-bold" : "text-red-500 font-bold"}>{subjects.includes(subject) ? '예' : '희망함'}</span> : (subjects.includes(subject) ? '아니오' : '희망안함')}</p>
+                                                
+                                                <button onClick={() => { setSelectedSubject(subject); setView('form'); }} className="w-full mt-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-1.5 rounded-md transition text-xs flex items-center justify-center gap-1 shadow-sm">
+                                                    <Icons.Edit size={14} /> 수정하기
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button className={`w-full mt-2 font-semibold py-2 rounded-lg transition text-sm ${hasProfile ? 'bg-blue-50 hover:bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                                작성하기
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mb-4 pb-2 border-b">
+                            <h2 className="text-xl font-bold text-gray-800">특별 관리 항목</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {specialSubjects.map(subject => {
+                                const status = getSubjectStatus(subject);
+                                const isCompleted = !!status;
+                                const isDaily = subject === '매일깨기';
+                                const IconComponent = isDaily ? Icons.Target : Icons.Briefcase;
+
+                                return (
+                                    <div key={subject} className={`p-5 rounded-xl border-2 transition ${isCompleted ? 'border-indigo-100 bg-indigo-50' : 'border-gray-100 bg-white'} ${!hasProfile && !isCompleted ? 'opacity-60 grayscale' : 'hover:border-indigo-200 cursor-pointer'}`} onClick={() => !isCompleted && handleSubjectClick(subject)}>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <IconComponent size={20} className={isCompleted ? "text-indigo-600" : "text-indigo-400"} />
+                                                <h3 className="font-bold text-lg text-gray-800">{subject}</h3>
+                                            </div>
+                                            {isCompleted ? (
+                                                <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Icons.CheckCircle size={12} /> 제출완료</span>
+                                            ) : (
+                                                <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded-full">미작성</span>
+                                            )}
+                                        </div>
+                                        
+                                        {isCompleted ? (
+                                            <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-indigo-100">
+                                                <button onClick={(e) => { e.stopPropagation(); handleSubjectClick(subject); }} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-1.5 rounded-md transition text-xs flex items-center justify-center gap-1 shadow-sm">
+                                                    <Icons.Edit size={14} /> 수정하기
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button className={`w-full mt-2 font-semibold py-2 rounded-lg transition text-sm ${hasProfile ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                                작성하기
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            const FeedbackForm = () => {
+                const existingFeedback = feedbacks.find(f => f.studentKey === currentUser.key && f.subject === selectedSubject);
+                const [isSubmitting, setIsSubmitting] = useState(false);
+                
+                const [formData, setFormData] = useState(existingFeedback || {
+                    date: '', room: '', firstDate: '', inquiryName: '',
+                    difficulty: '', dailyScores: { korean: null, math: null, english: null, inquiry: null }, wantsCounseling: null, comment: '', status: 'pending'
+                });
+
+                const isProfile = selectedSubject === 'profile';
+                const isDaily = selectedSubject === '매일깨기';
+                const isPrincipal = selectedSubject === '원장님 상담';
+                const isRegular = !isDaily && !isPrincipal && !isProfile;
+                const isInquiry = selectedSubject === '탐구1' || selectedSubject === '탐구2';
+
+                const handleSubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    if (isProfile) {
+                        if (!formData.firstDate || !formData.room) {
+                            showToast('첫등원일과 강의실을 모두 입력해주세요.'); return;
+                        }
+                        formData.department = calculateDepartment(formData.room);
+                    } else if (isRegular) {
+                        if (!formData.date || !formData.difficulty || formData.wantsCounseling === null) {
+                            showToast('필수 항목을 모두 입력해주세요.'); return;
+                        }
+                        if (isInquiry && !formData.inquiryName) {
+                            showToast('탐구 선택과목명을 선택해주세요.'); return;
+                        }
+                    } else {
+                        if (formData.wantsCounseling === null) {
+                            showToast('상담 희망 여부를 선택해주세요.'); return;
+                        }
+                    }
+
+                    setIsSubmitting(true);
+                    
+                    try {
+                        const saveData = {
+                            studentKey: currentUser.key, studentName: currentUser.name, subject: selectedSubject, ...formData,
+                        };
+
+                        if (db) {
+                            if (existingFeedback) {
+                                const docRef = window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingFeedback.id);
+                                await window.Firebase.updateDoc(docRef, { ...saveData, updatedAt: new Date().toLocaleString('ko-KR') });
+                            } else {
+                                const colRef = window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
+                                await window.Firebase.addDoc(colRef, { ...saveData, submittedAt: new Date().toLocaleString('ko-KR'), createdAt: Date.now() });
+                            }
+                        } else {
+                            let updatedFeedbacks;
+                            if (existingFeedback) {
+                                updatedFeedbacks = feedbacks.map(f => f.id === existingFeedback.id ? { ...f, ...saveData, updatedAt: new Date().toLocaleString('ko-KR') } : f);
+                            } else {
+                                updatedFeedbacks = [{ id: Date.now().toString(), ...saveData, submittedAt: new Date().toLocaleString('ko-KR'), createdAt: Date.now() }, ...feedbacks];
+                            }
+                            setFeedbacks(updatedFeedbacks);
+                            localStorage.setItem('onboardingFeedbacks', JSON.stringify(updatedFeedbacks));
+                        }
+                        showToast(`${isProfile ? '기본 정보' : selectedSubject}가 정상적으로 저장되었습니다.`);
+                        setView('student_dash');
+                    } catch (error) {
+                        console.error("저장 에러:", error);
+                        showToast('데이터 저장 중 문제가 발생했습니다.');
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                };
+
+                return (
+                    <div className="max-w-2xl mx-auto mt-8 bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100 fade-in">
+                        <button onClick={() => setView('student_dash')} className="text-gray-500 hover:text-gray-800 mb-6 flex items-center gap-2 transition"><Icons.ArrowLeft size={18} /> 뒤로 가기</button>
+                        
+                        <div className="mb-6 pb-4 border-b border-gray-100">
+                            {isProfile ? (
+                                <h2 className="text-2xl font-bold text-gray-800">기본 정보 설정</h2>
+                            ) : (
+                                <h2 className="text-2xl font-bold text-gray-800"><span className="text-blue-600">{selectedSubject}</span> {isRegular ? '첫 수업 피드백' : '신청 및 피드백'}</h2>
+                            )}
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            {isProfile && (
+                                <>
+                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                        <label className="block text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>첫 등원 일자</label>
+                                        <input type="date" required className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={formData.firstDate} onChange={(e) => setFormData({...formData, firstDate: e.target.value})} />
+                                    </div>
+                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                        <label className="block text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>첫 등원 강의실 (호실)</label>
+                                        <p className="text-xs text-gray-500 mb-2 ml-8">숫자만 입력해주세요. (예: 301, 605)</p>
+                                        <input type="number" required placeholder="강의실 번호 (숫자)" className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={formData.room} onChange={(e) => setFormData({...formData, room: e.target.value})} />
+                                    </div>
+                                </>
+                            )}
+
+                            {!isProfile && isInquiry && (
+                                <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                                    <label className="block text-base font-bold text-blue-900 mb-3 flex items-center gap-2">
+                                        <Icons.Info size={20} /> 탐구 선택과목 지정
+                                    </label>
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                        {inquiryOptions.map(opt => (
+                                            <button type="button" key={opt} onClick={() => setFormData({...formData, inquiryName: opt})} className={`py-2 text-sm font-medium rounded-lg border transition text-center ${formData.inquiryName === opt ? 'bg-blue-600 text-white border-blue-600 shadow' : 'bg-white text-gray-600 border-gray-200 hover:bg-blue-100'}`}>
+                                                {opt}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {isRegular && (
+                                <>
+                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                        <label className="block text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><span className="bg-gray-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>해당 과목 첫 수업 일자</label>
+                                        <input type="date" required className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+                                    </div>
+                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                        <label className="block text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><span className="bg-gray-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>오늘 수업의 난이도는 어떠했나요?</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                                            {[{v:'1', l:'1(매우쉬움)'},{v:'2', l:'2(쉬움)'},{v:'3', l:'3(적절)'},{v:'4', l:'4(어려움)'},{v:'5', l:'5(매우어려움)'}].map(opt => (
+                                                <button type="button" key={opt.v} onClick={() => setFormData({...formData, difficulty: opt.v})} className={`p-3 text-sm font-medium rounded-lg border transition text-center ${formData.difficulty === opt.v ? 'radio-btn-checked shadow-md' : 'radio-btn-unchecked hover:bg-gray-50'}`}>{opt.l}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            
+                            {isDaily && (
+                                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                    <label className="block text-base font-bold text-gray-800 mb-4 flex items-start gap-2">
+                                        <span className="bg-gray-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5">1</span>
+                                        <div>매일깨기 난이도 평가<p className="text-xs text-blue-600 font-bold mt-1">1: 매우 쉬움 ~ 5: 매우 어려움</p></div>
+                                    </label>
+                                    <div className="space-y-3">
+                                        {[{k:'korean', l:'국어'}, {k:'math', l:'수학'}, {k:'english', l:'영어'}, {k:'inquiry', l:'탐구'}].map(item => (
+                                            <div key={item.k} className="flex flex-col sm:flex-row sm:items-center justify-between py-2 border-b border-gray-200 last:border-0">
+                                                <span className="font-bold text-gray-700 w-24">{item.l}</span>
+                                                <div className="flex gap-2">
+                                                    {[1,2,3,4,5].map(val => (
+                                                        <button type="button" key={val} onClick={() => setFormData({...formData, dailyScores: {...formData.dailyScores, [item.k]: val}})} className={`w-9 h-9 rounded-full font-bold text-sm transition border ${formData.dailyScores[item.k] === val ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border-gray-300'}`}>{val}</button>
+                                                    ))}
+                                                    <button type="button" onClick={() => setFormData({...formData, dailyScores: {...formData.dailyScores, [item.k]: null}})} className={`px-2 h-9 rounded-full text-xs font-bold transition border ${formData.dailyScores[item.k] === null ? 'bg-gray-200 text-gray-700' : 'bg-white text-gray-500 border-gray-300'}`}>미수행</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isProfile && (
+                                <>
+                                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                    <label className="block text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{isRegular ? '3' : (isDaily ? '2' : '1')}</span>
+                                        {isPrincipal ? '전반적인 학원 생활과 관련하여 원장님 상담을 희망합니까?' : isDaily ? '매일깨기 관련 상담을 희망합니까?' : '과목상담이 진행되었습니까?'}
+                                    </label>
+                                    <div className="flex gap-4">
+                                        <button type="button" onClick={() => setFormData({...formData, wantsCounseling: true})} className={`flex-1 p-3 text-center font-bold rounded-lg border transition ${formData.wantsCounseling === true ? 'bg-red-50 text-red-600 border-red-300' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>{isRegular ? '예' : '예, 희망합니다'}</button>
+                                        <button type="button" onClick={() => setFormData({...formData, wantsCounseling: false})} className={`flex-1 p-3 text-center font-bold rounded-lg border transition ${formData.wantsCounseling === false ? 'bg-blue-50 text-blue-600 border-blue-300' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>아니오</button>
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                    <label className="block text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                        <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{isRegular ? '4' : (isDaily ? '3' : '2')}</span>
+                                        {isPrincipal ? '원장님께 전달하고 싶은 내용이나 고민 (선택)' : (isRegular ? '기타 특이사항 (선택)' : '전달하고 싶은 내용이나 고민 (선택)')}
+                                    </label>
+                                    {!isPrincipal && <p className="text-xs text-gray-500 mb-3 ml-8">진도, 공부법, 분위기 적응 등 어떤 것이든 좋습니다.</p>}
+                                    <textarea className="w-full p-4 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white h-32 resize-none" placeholder="자유롭게 작성해주세요..." value={formData.comment} onChange={(e) => setFormData({...formData, comment: e.target.value})}></textarea>
+                                </div>
+                                </>
+                            )}
+                            
+                            <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70">
+                                {isSubmitting && <Icons.Loader2 className="animate-spin" size={20} />} 저장하기
+                            </button>
+                        </form>
+                    </div>
+                );
+            };
+
+            const TeacherDashboard = () => {
+                const [selectedFeedback, setSelectedFeedback] = useState(null);
+                const [searchTerm, setSearchTerm] = useState('');
+                const [activeDept, setActiveDept] = useState('전체'); // '교무1부', '교무2부', '전체'
+                const [activeStatus, setActiveStatus] = useState('pending'); // 'pending' | 'completed'
+
+                const mandatorySubjects = ['국어', '수학', '영어', '탐구1', '탐구2', '매일깨기'];
+                const allCols = [...mandatorySubjects, '원장님 상담'];
+
+                const studentGroups = useMemo(() => {
+                    const groups = {};
+                    feedbacks.forEach(fb => {
+                        if (!groups[fb.studentKey]) {
+                            groups[fb.studentKey] = {
+                                studentKey: fb.studentKey, studentName: fb.studentName, fbs: {}, latestUpdate: 0
+                            };
+                        }
+                        groups[fb.studentKey].fbs[fb.subject] = fb;
+                        if ((fb.createdAt || 0) > groups[fb.studentKey].latestUpdate) {
+                            groups[fb.studentKey].latestUpdate = fb.createdAt;
+                        }
+                    });
+
+                    return Object.values(groups).map(group => {
+                        const profile = group.fbs['profile'] || {};
+                        const department = profile.department || '미분류';
+                        const room = profile.room || '-';
+                        const firstDate = profile.firstDate || '-';
+                        
+                        const hasAllMandatory = mandatorySubjects.every(sub => group.fbs[sub] !== undefined);
+                        const hasPendingCounseling = Object.values(group.fbs).some(fb => fb.subject !== 'profile' && fb.wantsCounseling === true && fb.status !== 'completed');
+                        
+                        // 관리자 강제 처리/되돌리기 상태 확인
+                        const adminStatusDoc = group.fbs['관리자_상태']; 
+                        const adminForceCompleted = adminStatusDoc ? adminStatusDoc.isForceCompleted : null;
+                        
+                        let isFullyProcessed = (hasAllMandatory && !hasPendingCounseling);
+                        if (adminForceCompleted === true) isFullyProcessed = true;
+                        if (adminForceCompleted === false) isFullyProcessed = false;
+
+                        return { ...group, department, room, firstDate, isFullyProcessed };
+                    }).sort((a, b) => b.latestUpdate - a.latestUpdate);
+                }, [feedbacks]);
+
+                const filteredStudents = studentGroups.filter(student => {
+                    const matchesSearch = student.studentName.includes(searchTerm.trim()) || String(student.room).includes(searchTerm.trim());
+                    const matchesDept = activeDept === '전체' ? true : student.department === activeDept;
+                    const matchesStatus = activeStatus === 'pending' ? !student.isFullyProcessed : student.isFullyProcessed;
+                    return matchesSearch && matchesDept && matchesStatus;
+                });
+
+                // 관리자 처리 <-> 진행중 토글 버튼 기능
+                const toggleStudentComplete = async (studentKey, studentName, currentStatus) => {
+                    const targetStatus = !currentStatus;
+                    
+                    try {
+                        const existingDoc = feedbacks.find(f => f.studentKey === studentKey && f.subject === '관리자_상태');
+                        
+                        if (db) {
+                            if (existingDoc) {
+                                await window.Firebase.updateDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingDoc.id), {
+                                    subject: '관리자_상태', isForceCompleted: targetStatus, updatedAt: Date.now()
+                                });
+                            } else {
+                                await window.Firebase.addDoc(window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks'), {
+                                    studentKey, studentName, subject: '관리자_상태', isForceCompleted: targetStatus, createdAt: Date.now()
+                                });
+                            }
+                        } else {
+                            let updated;
+                            if (existingDoc) {
+                                updated = feedbacks.map(f => f.id === existingDoc.id ? { ...f, subject: '관리자_상태', isForceCompleted: targetStatus, updatedAt: Date.now() } : f);
+                            } else {
+                                const newDoc = { id: Date.now().toString(), studentKey, studentName, subject: '관리자_상태', isForceCompleted: targetStatus, createdAt: Date.now() };
+                                updated = [newDoc, ...feedbacks];
+                            }
+                            setFeedbacks(updated);
+                            localStorage.setItem('onboardingFeedbacks', JSON.stringify(updated));
+                        }
+                        showToast(targetStatus ? `${studentName} 학생이 처리 완료되었습니다.` : `${studentName} 학생이 진행 중으로 변경되었습니다.`);
+                    } catch(e) {
+                        console.error(e);
+                        showToast('상태 변경 중 오류가 발생했습니다.');
+                    }
+                };
+
+                const deleteStudent = async (studentKey, studentName) => {
+                    if(!window.confirm(`⚠️ 경고: ${studentName} 학생의 모든 데이터를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+                    
+                    try {
+                        if (db) {
+                            const docsToDelete = feedbacks.filter(f => f.studentKey === studentKey);
+                            for (const fb of docsToDelete) {
+                                await window.Firebase.deleteDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id));
+                            }
+                        } else {
+                            const updated = feedbacks.filter(f => f.studentKey !== studentKey);
+                            setFeedbacks(updated);
+                            localStorage.setItem('onboardingFeedbacks', JSON.stringify(updated));
+                        }
+                        showToast(`${studentName} 학생 데이터가 삭제되었습니다.`);
+                    } catch(e) {
+                        console.error(e);
+                        showToast('삭제 중 오류가 발생했습니다.');
+                    }
+                };
+
+                const toggleStatus = (fb) => {
+                    const newStatus = fb.status === 'completed' ? 'pending' : 'completed';
+                    if(db) window.Firebase.updateDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id), { status: newStatus });
+                    else {
+                        const updated = feedbacks.map(f => f.id === fb.id ? { ...f, status: newStatus } : f);
+                        setFeedbacks(updated); localStorage.setItem('onboardingFeedbacks', JSON.stringify(updated));
+                    }
+                    setSelectedFeedback({...fb, status: newStatus});
+                };
+
+                const getDifficultyText = (val) => {
+                    const mapping = { '1': '1(매우 쉬움)', '2': '2(조금 쉬움)', '3': '3(적절)', '4': '4(조금 어려움)', '5': '5(매우 어려움)' };
+                    return mapping[val] || `${val}점`;
+                };
+
+                const renderSubjectBadge = (student, subject) => {
+                    const fb = student.fbs[subject];
+                    if (!fb) return <div key={subject} className="w-full text-center text-[11px] text-gray-400 py-2 bg-gray-50 rounded border border-dashed border-gray-200">미제출</div>;
+                    
+                    const handleClick = (e) => { e.stopPropagation(); setSelectedFeedback(fb); };
+                    const hasSubName = fb.inquiryName;
+
+                    let btnClass = "w-full flex flex-col items-center justify-center text-[11px] py-1.5 rounded shadow-sm transition leading-tight ";
+                    let text = "";
+
+                    if (fb.wantsCounseling) {
+                        if (fb.status === 'completed') {
+                            btnClass += "bg-gray-200 hover:bg-gray-300 text-gray-600"; text = "처리완료";
+                        } else {
+                            btnClass += "bg-red-100 hover:bg-red-200 text-red-600 font-bold border border-red-200 animate-pulse"; text = "상담요망";
+                        }
+                    } else {
+                        btnClass += "bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100"; text = "적응양호";
+                    }
+
+                    return (
+                        <button type="button" key={subject} onClick={handleClick} className={btnClass}>
+                            <span>{text}</span>
+                            {hasSubName && <span className="text-[9px] font-bold mt-0.5 opacity-80 bg-white px-1 rounded-sm">{fb.inquiryName}</span>}
+                        </button>
+                    );
+                };
+
+                return (
+                    <div className="max-w-6xl mx-auto mt-8 px-4 fade-in pb-20">
+                        {/* 상단 컨트롤 바 */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Icons.Shield className="text-red-600"/> 관리자 대시보드</h2>
+                            </div>
+                            <div className="flex gap-2 w-full lg:w-auto">
+                                <div className="relative flex-1">
+                                    <input type="text" placeholder="이름/호실 검색" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+                                    <Icons.Search className="absolute left-2.5 top-2 text-gray-400" size={16} />
+                                </div>
+                                <button onClick={() => showToast('새로고침 되었습니다.')} className="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg"><Icons.RefreshCw size={18} className="text-gray-600"/></button>
+                                <button onClick={handleLogout} className="bg-gray-100 hover:bg-gray-200 p-2 rounded-lg text-gray-600"><Icons.LogOut size={18}/></button>
+                            </div>
+                        </div>
+
+                        {/* 부서 선택 탭 */}
+                        <div className="flex bg-white rounded-t-xl border-b border-gray-200 px-4 pt-2 overflow-x-auto no-scrollbar">
+                            {['교무1부', '교무2부', '전체'].map(dept => (
+                                <button key={dept} onClick={() => setActiveDept(dept)} className={`py-3 px-5 font-bold text-sm transition-all border-b-2 whitespace-nowrap ${activeDept === dept ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    {dept} {dept === '전체' && ' / 미분류'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* 상태 필터 (서브 탭) */}
+                        <div className="bg-white px-4 py-3 border-b border-gray-100 flex gap-2">
+                            <button onClick={() => setActiveStatus('pending')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${activeStatus === 'pending' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>🚨 진행 중 (미완료)</button>
+                            <button onClick={() => setActiveStatus('completed')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${activeStatus === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>✅ 처리 완료</button>
+                        </div>
+
+                        {/* 리스트 영역 */}
+                        {filteredStudents.length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-b-xl border-x border-b border-gray-100 text-gray-400">
+                                <Icons.User size={40} className="mx-auto mb-3 opacity-30" />
+                                <p>해당 조건에 맞는 학생이 없습니다.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-b-xl shadow-sm border-x border-b border-gray-200 overflow-hidden">
+                                <div className="hidden lg:grid grid-cols-12 gap-1 p-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 text-center items-center">
+                                    <div className="col-span-2 text-left pl-2">학생 정보</div>
+                                    <div className="col-span-1">국어</div>
+                                    <div className="col-span-1">수학</div>
+                                    <div className="col-span-1">영어</div>
+                                    <div className="col-span-1">탐구1</div>
+                                    <div className="col-span-1">탐구2</div>
+                                    <div className="col-span-1">매일깨기</div>
+                                    <div className="col-span-1">원장상담</div>
+                                    <div className="col-span-1">상태</div>
+                                    <div className="col-span-2">관리</div>
+                                </div>
+
+                                <div className="divide-y divide-gray-100">
+                                    {filteredStudents.map(student => (
+                                        <div key={student.studentKey} className={`p-4 transition hover:bg-gray-50 ${activeStatus === 'completed' ? 'bg-gray-50/50' : 'bg-white'}`}>
+                                            
+                                            {/* 데스크탑 뷰 */}
+                                            <div className="hidden lg:grid grid-cols-12 gap-1 items-center text-center">
+                                                <div className="col-span-2 text-left pl-2 flex flex-col">
+                                                    <span className="font-bold text-gray-800 text-sm truncate">{student.studentName}</span>
+                                                    <span className="text-[10px] text-gray-500 mt-0.5">{student.department} | {student.room}호 | {student.firstDate}</span>
+                                                </div>
+                                                {allCols.map(sub => <div key={sub} className="col-span-1 px-1">{renderSubjectBadge(student, sub)}</div>)}
+                                                
+                                                <div className="col-span-1 flex justify-center">
+                                                    {student.isFullyProcessed ? (
+                                                        <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1"><Icons.CheckCircle size={10}/> 완료</span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">진행중</span>
+                                                    )}
+                                                </div>
+                                                <div className="col-span-2 flex justify-center gap-1.5">
+                                                    {!student.isFullyProcessed ? (
+                                                        <button onClick={() => toggleStudentComplete(student.studentKey, student.studentName, student.isFullyProcessed)} className="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded border border-indigo-200 transition font-bold shadow-sm whitespace-nowrap">처리</button>
+                                                    ) : (
+                                                        <button onClick={() => toggleStudentComplete(student.studentKey, student.studentName, student.isFullyProcessed)} className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded border border-gray-300 transition font-bold shadow-sm whitespace-nowrap">진행중으로</button>
+                                                    )}
+                                                    <button onClick={() => deleteStudent(student.studentKey, student.studentName)} className="text-[11px] bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1.5 rounded border border-red-200 transition font-bold shadow-sm flex items-center gap-1"><Icons.Trash2 size={10}/> 삭제</button>
+                                                </div>
+                                            </div>
+
+                                            {/* 모바일 뷰 */}
+                                            <div className="lg:hidden">
+                                                <div className="flex justify-between items-start mb-3 border-b border-gray-100 pb-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-base text-gray-800">{student.studentName}</span>
+                                                            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{student.room}호</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${student.department==='교무1부'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{student.department}</span>
+                                                        </div>
+                                                        <div className="text-[11px] text-gray-500 mt-1">첫 등원: {student.firstDate}</div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1 items-end">
+                                                        {!student.isFullyProcessed ? (
+                                                            <button onClick={() => toggleStudentComplete(student.studentKey, student.studentName, student.isFullyProcessed)} className="text-[11px] bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded border border-indigo-200 font-bold shadow-sm">처리 완료</button>
+                                                        ) : (
+                                                            <button onClick={() => toggleStudentComplete(student.studentKey, student.studentName, student.isFullyProcessed)} className="text-[11px] bg-gray-100 text-gray-700 px-3 py-1.5 rounded border border-gray-300 font-bold shadow-sm">진행중으로 되돌리기</button>
+                                                        )}
+                                                        <button onClick={() => deleteStudent(student.studentKey, student.studentName)} className="text-[11px] bg-red-50 text-red-600 px-2 py-1.5 rounded border border-red-200 font-bold shadow-sm flex items-center gap-1 mt-1"><Icons.Trash2 size={10}/> 데이터 삭제</button>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                                                    {allCols.map(sub => (
+                                                        <div key={sub} className="flex flex-col gap-1">
+                                                            <span className="text-[9px] font-bold text-gray-400 text-center">{sub.replace('원장님 상담','원장')}</span>
+                                                            {renderSubjectBadge(student, sub)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 모달 팝업 */}
+                        {selectedFeedback && (
+                            <div id="modalOverlay" onClick={(e) => e.target.id === 'modalOverlay' && setSelectedFeedback(null)} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 fade-in">
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden slide-up max-h-[90vh] flex flex-col">
+                                    <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50 shrink-0">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-sm ${selectedFeedback.subject === '원장님 상담' ? 'bg-purple-600' : selectedFeedback.subject === '매일깨기' ? 'bg-orange-500' : 'bg-blue-600'}`}>
+                                                {selectedFeedback.studentName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-xl text-gray-900">{selectedFeedback.studentName}</h3>
+                                                <p className="text-sm text-blue-600 font-bold">{selectedFeedback.subject} 피드백 {selectedFeedback.inquiryName ? `(${selectedFeedback.inquiryName})` : ''}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setSelectedFeedback(null)} className="text-gray-400 hover:text-gray-700 bg-white rounded-full p-1 transition shadow-sm">
+                                            <Icons.X size={24} />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-6 space-y-4 overflow-y-auto no-scrollbar">
+                                        {selectedFeedback.subject !== '원장님 상담' && selectedFeedback.subject !== '매일깨기' && selectedFeedback.subject !== 'profile' && (
+                                            <>
+                                                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                    <span className="text-gray-500 font-medium">첫 수업 일자</span>
+                                                    <span className="font-bold text-gray-800">{selectedFeedback.date}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                    <span className="text-gray-500 font-medium">수업 난이도</span>
+                                                    <span className={`font-bold px-3 py-1 rounded-full text-sm ${parseInt(selectedFeedback.difficulty) >= 4 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-700'}`}>
+                                                        {getDifficultyText(selectedFeedback.difficulty)}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {selectedFeedback.subject === '매일깨기' && (
+                                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                                <span className="text-gray-500 font-medium block mb-3 border-b border-gray-200 pb-2">수행한 매일깨기 난이도 평가</span>
+                                                <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">국어</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.korean ? getDifficultyText(selectedFeedback.dailyScores.korean) : '미수행'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">수학</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.math ? getDifficultyText(selectedFeedback.dailyScores.math) : '미수행'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">영어</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.english ? getDifficultyText(selectedFeedback.dailyScores.english) : '미수행'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">탐구</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.inquiry ? getDifficultyText(selectedFeedback.dailyScores.inquiry) : '미수행'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                            <span className="text-gray-500 font-medium">
+                                                {selectedFeedback.subject !== '원장님 상담' && selectedFeedback.subject !== '매일깨기' ? '과목상담 진행 여부' : '상담 희망 여부'}
+                                            </span>
+                                            <span className={`font-bold ${selectedFeedback.wantsCounseling ? 'text-red-600 flex items-center gap-1' : 'text-gray-500'}`}>
+                                                {selectedFeedback.subject !== '원장님 상담' && selectedFeedback.subject !== '매일깨기' 
+                                                    ? (selectedFeedback.wantsCounseling ? '예 (진행됨)' : '아니오') 
+                                                    : (selectedFeedback.wantsCounseling ? '희망함 (긴급)' : '희망안함')}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-4">
+                                            <span className="text-sm text-gray-500 font-bold block mb-2">학생 코멘트</span>
+                                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-gray-800 min-h-[80px] whitespace-pre-wrap">
+                                                {selectedFeedback.comment ? selectedFeedback.comment : <span className="text-gray-400 italic">코멘트가 없습니다.</span>}
+                                            </div>
+                                        </div>
+                                        <div className="text-right text-xs text-gray-400 pt-2">
+                                            최초 제출: {selectedFeedback.submittedAt}
+                                            {selectedFeedback.updatedAt && <><br/>수정됨: {selectedFeedback.updatedAt}</>}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                                        <span className="text-sm font-medium text-gray-500">현재 상태: 
+                                            <span className={`ml-2 font-bold ${selectedFeedback.status === 'completed' ? 'text-gray-600' : 'text-blue-600'}`}>
+                                                {selectedFeedback.status === 'completed' ? '처리 완료' : '미처리'}
+                                            </span>
+                                        </span>
+                                        <button 
+                                            onClick={() => toggleStatus(selectedFeedback)}
+                                            className={`px-5 py-2.5 rounded-lg font-bold transition flex items-center gap-2 ${
+                                                selectedFeedback.status === 'completed' 
+                                                ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' 
+                                                : 'bg-green-600 hover:bg-green-700 text-white shadow-md'
+                                            }`}
+                                        >
+                                            {selectedFeedback.status === 'completed' ? '미처리로 되돌리기' : <><Icons.CheckCircle size={18} /> 처리하기</>}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            if (!isFirebaseReady) return null;
+
+            return (
+                <div className="min-h-screen pb-12">
+                    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+                        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
+                            <div className="bg-blue-600 text-white p-1 rounded"><Icons.GraduationCap size={18} /></div>
+                            <h1 className="font-bold text-lg text-gray-800">반수생 첫수업 피드백</h1>
+                        </div>
+                    </nav>
+                    {toastMsg && (
+                        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-5 py-2.5 rounded-full shadow-lg z-50 fade-in flex items-center gap-2 text-sm">
+                            <Icons.CheckCircle size={16} className="text-green-400" /> {toastMsg}
+                        </div>
+                    )}
+                    <main className="px-2">
+                        {view === 'login' && <LoginView />}
+                        {view === 'student_dash' && currentUser?.role === 'student' && <StudentDashboard />}
+                        {view === 'form' && currentUser?.role === 'student' && <FeedbackForm />}
+                        {view === 'teacher_dash' && currentUser?.role === 'teacher' && <TeacherDashboard />}
+                    </main>
+                </div>
+            );
+        };
+
+        const initRender = () => {
+            if (!window.Firebase) { setTimeout(initRender, 50); return; }
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
+        };
+        initRender();
+    </script>
+</body>
+</html>
