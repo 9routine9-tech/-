@@ -7,7 +7,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.28.5/babel.min.js"></script>
+    <script>
+        // 최신 Babel의 자동 런타임(automatic) 충돌을 방지하고 브라우저 환경에서 작동하도록 클래식 런타임 설정 추가
+        Babel.registerPreset('react-classic', {
+            presets: [
+                [Babel.availablePresets['react'], { runtime: 'classic' }]
+            ]
+        });
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -25,28 +33,46 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 
-    <!-- Firebase SDK 로드 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.Firebase = {
-            initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken,
-            getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc
+    <!-- Firebase SDK 로드 (로컬 환경 및 브라우저 호환성 이슈 해결을 위해 Compat 버전 사용) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    <script>
+        // 네트워크 차단 시 오프라인 우회 로직이 고장나지 않도록 수정된 어댑터
+        window.FirebaseAdapter = {
+            initializeApp: function(config) { return firebase.initializeApp(config); },
+            getAuth: function(app) { return firebase.auth(); },
+            signInAnonymously: function(auth) { return auth.signInAnonymously(); },
+            onAuthStateChanged: function(auth, cb) { return auth.onAuthStateChanged(cb); },
+            signInWithCustomToken: function(auth, token) { return auth.signInWithCustomToken(token); },
+            getFirestore: function(app) { return firebase.firestore(); },
+            collection: function(db) { 
+                var paths = Array.prototype.slice.call(arguments, 1);
+                return db.collection(paths.join('/')); 
+            },
+            doc: function(db) { 
+                var paths = Array.prototype.slice.call(arguments, 1);
+                return db.doc(paths.join('/')); 
+            },
+            addDoc: function(colRef, data) { return colRef.add(data); },
+            updateDoc: function(docRef, data) { return docRef.update(data); },
+            deleteDoc: function(docRef) { return docRef.delete(); },
+            onSnapshot: function(ref, cb, errCb) { return ref.onSnapshot(cb, errCb); }
         };
     </script>
 </head>
 <body>
     <div id="root">
-        <div style="display:flex; justify-content:center; align-items:center; height:100vh; padding-top:20vh; color:#6b7280;">
+        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; padding-top:20vh; color:#6b7280; font-family:'Inter', sans-serif;">
+            <div style="width:40px; height:40px; border:4px solid #e5e7eb; border-top-color:#3b82f6; border-radius:50%; animation:spin 1s linear infinite; margin-bottom:16px;"></div>
             시스템을 초기화하고 있습니다...
         </div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
     </div>
 
-<script type="text/babel">
-    /** @jsxRuntime classic */
-    const { useState, useEffect, useMemo } = React;
+    <!-- Babel이 임의의 모듈(import) 구문을 자동 생성하지 못하도록 강제 차단 -->
+    <script type="text/babel" data-presets="react-classic">
+        const { useState, useEffect, useMemo } = React;
 
         const Icons = {
             GraduationCap: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
@@ -65,10 +91,11 @@
             Loader2: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>,
             RefreshCw: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
             Trash2: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
-            Info: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Info: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+            CloudOff: ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         };
 
-        const App = () => {
+        const App = ({ bypassFirebase }) => {
             const [fbUser, setFbUser] = useState(null);
             const [isFirebaseReady, setIsFirebaseReady] = useState(false);
             const [db, setDb] = useState(null);
@@ -89,7 +116,6 @@
                 setTimeout(() => setToastMsg(''), 3000);
             };
 
-            // 부서 판단 로직
             const calculateDepartment = (roomStr) => {
                 const room = parseInt(roomStr, 10);
                 if (isNaN(room)) return '미분류';
@@ -100,6 +126,13 @@
 
             useEffect(() => {
                 const setupFirebase = async () => {
+                    // 클라우드 객체(firebase)가 완전히 다운로드되었는지 정확하게 확인합니다.
+                    if (bypassFirebase || typeof firebase === 'undefined') {
+                        setDb(null);
+                        setIsFirebaseReady(true);
+                        return;
+                    }
+
                     try {
                         const MY_FIREBASE_CONFIG = {
                             apiKey: "AIzaSyAcl9HQ-waEKeMndEEoRosQlSs9j1DCiTw",
@@ -119,9 +152,9 @@
                         }
 
                         if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
-                            const app = window.Firebase.initializeApp(firebaseConfig);
-                            const auth = window.Firebase.getAuth(app);
-                            const firestoreDb = window.Firebase.getFirestore(app);
+                            const app = window.FirebaseAdapter.initializeApp(firebaseConfig);
+                            const auth = window.FirebaseAdapter.getAuth(app);
+                            const firestoreDb = window.FirebaseAdapter.getFirestore(app);
                             
                             if (typeof __app_id !== 'undefined') {
                                 setAppId(__app_id);
@@ -129,13 +162,13 @@
 
                             try {
                                 if (!isCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                    await window.Firebase.signInWithCustomToken(auth, __initial_auth_token);
+                                    await window.FirebaseAdapter.signInWithCustomToken(auth, __initial_auth_token);
                                 } else {
-                                    await window.Firebase.signInAnonymously(auth);
+                                    await window.FirebaseAdapter.signInAnonymously(auth);
                                 }
                                 
                                 setDb(firestoreDb);
-                                window.Firebase.onAuthStateChanged(auth, (user) => {
+                                window.FirebaseAdapter.onAuthStateChanged(auth, (user) => {
                                     setFbUser(user);
                                     setIsFirebaseReady(true);
                                 });
@@ -154,12 +187,12 @@
                     }
                 };
                 setupFirebase();
-            }, []);
+            }, [bypassFirebase]);
 
             useEffect(() => {
-                if (db && fbUser) {
-                    const colRef = window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
-                    const unsubscribe = window.Firebase.onSnapshot(colRef, (snapshot) => {
+                if (db && fbUser && typeof firebase !== 'undefined') {
+                    const colRef = window.FirebaseAdapter.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
+                    const unsubscribe = window.FirebaseAdapter.onSnapshot(colRef, (snapshot) => {
                         const data = [];
                         snapshot.forEach(doc => { data.push({ id: doc.id, ...doc.data() }); });
                         setFeedbacks(data);
@@ -434,13 +467,13 @@
                             studentKey: currentUser.key, studentName: currentUser.name, subject: selectedSubject, ...formData,
                         };
 
-                        if (db) {
+                        if (db && typeof firebase !== 'undefined') {
                             if (existingFeedback) {
-                                const docRef = window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingFeedback.id);
-                                await window.Firebase.updateDoc(docRef, { ...saveData, updatedAt: new Date().toLocaleString('ko-KR') });
+                                const docRef = window.FirebaseAdapter.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingFeedback.id);
+                                await window.FirebaseAdapter.updateDoc(docRef, { ...saveData, updatedAt: new Date().toLocaleString('ko-KR') });
                             } else {
-                                const colRef = window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
-                                await window.Firebase.addDoc(colRef, { ...saveData, submittedAt: new Date().toLocaleString('ko-KR'), createdAt: Date.now() });
+                                const colRef = window.FirebaseAdapter.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks');
+                                await window.FirebaseAdapter.addDoc(colRef, { ...saveData, submittedAt: new Date().toLocaleString('ko-KR'), createdAt: Date.now() });
                             }
                         } else {
                             let updatedFeedbacks;
@@ -632,13 +665,13 @@
                     try {
                         const existingDoc = feedbacks.find(f => f.studentKey === studentKey && f.subject === '관리자_상태');
                         
-                        if (db) {
+                        if (db && typeof firebase !== 'undefined') {
                             if (existingDoc) {
-                                await window.Firebase.updateDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingDoc.id), {
+                                await window.FirebaseAdapter.updateDoc(window.FirebaseAdapter.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', existingDoc.id), {
                                     subject: '관리자_상태', isForceCompleted: targetStatus, updatedAt: Date.now()
                                 });
                             } else {
-                                await window.Firebase.addDoc(window.Firebase.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks'), {
+                                await window.FirebaseAdapter.addDoc(window.FirebaseAdapter.collection(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks'), {
                                     studentKey, studentName, subject: '관리자_상태', isForceCompleted: targetStatus, createdAt: Date.now()
                                 });
                             }
@@ -664,10 +697,10 @@
                     if(!window.confirm(`⚠️ 경고: ${studentName} 학생의 모든 데이터를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
                     
                     try {
-                        if (db) {
+                        if (db && typeof firebase !== 'undefined') {
                             const docsToDelete = feedbacks.filter(f => f.studentKey === studentKey);
                             for (const fb of docsToDelete) {
-                                await window.Firebase.deleteDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id));
+                                await window.FirebaseAdapter.deleteDoc(window.FirebaseAdapter.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id));
                             }
                         } else {
                             const updated = feedbacks.filter(f => f.studentKey !== studentKey);
@@ -683,7 +716,7 @@
 
                 const toggleStatus = (fb) => {
                     const newStatus = fb.status === 'completed' ? 'pending' : 'completed';
-                    if(db) window.Firebase.updateDoc(window.Firebase.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id), { status: newStatus });
+                    if(db && typeof firebase !== 'undefined') window.FirebaseAdapter.updateDoc(window.FirebaseAdapter.doc(db, 'artifacts', appId, 'public', 'data', 'onboardingFeedbacks', fb.id), { status: newStatus });
                     else {
                         const updated = feedbacks.map(f => f.id === fb.id ? { ...f, status: newStatus } : f);
                         setFeedbacks(updated); localStorage.setItem('onboardingFeedbacks', JSON.stringify(updated));
@@ -882,19 +915,19 @@
                                                 <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
                                                     <div className="flex justify-between">
                                                         <span className="text-gray-600">국어</span>
-                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.korean ? getDifficultyText(selectedFeedback.dailyScores.korean) : '미수행'}</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores && selectedFeedback.dailyScores.korean ? getDifficultyText(selectedFeedback.dailyScores.korean) : '미수행'}</span>
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span className="text-gray-600">수학</span>
-                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.math ? getDifficultyText(selectedFeedback.dailyScores.math) : '미수행'}</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores && selectedFeedback.dailyScores.math ? getDifficultyText(selectedFeedback.dailyScores.math) : '미수행'}</span>
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span className="text-gray-600">영어</span>
-                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.english ? getDifficultyText(selectedFeedback.dailyScores.english) : '미수행'}</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores && selectedFeedback.dailyScores.english ? getDifficultyText(selectedFeedback.dailyScores.english) : '미수행'}</span>
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span className="text-gray-600">탐구</span>
-                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores?.inquiry ? getDifficultyText(selectedFeedback.dailyScores.inquiry) : '미수행'}</span>
+                                                        <span className="font-bold text-gray-800">{selectedFeedback.dailyScores && selectedFeedback.dailyScores.inquiry ? getDifficultyText(selectedFeedback.dailyScores.inquiry) : '미수행'}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -952,9 +985,17 @@
             return (
                 <div className="min-h-screen pb-12">
                     <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-                        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
-                            <div className="bg-blue-600 text-white p-1 rounded"><Icons.GraduationCap size={18} /></div>
-                            <h1 className="font-bold text-lg text-gray-800">반수생 첫수업 피드백</h1>
+                        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-blue-600 text-white p-1 rounded"><Icons.GraduationCap size={18} /></div>
+                                <h1 className="font-bold text-lg text-gray-800">반수생 첫수업 피드백</h1>
+                            </div>
+                            {/* 오프라인 구동 시 알림 뱃지 표시 */}
+                            {!db && isFirebaseReady && (
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1.5 rounded-md border border-orange-200">
+                                    <Icons.CloudOff size={14} /> 오프라인 모드
+                                </div>
+                            )}
                         </div>
                     </nav>
                     {toastMsg && (
@@ -964,18 +1005,31 @@
                     )}
                     <main className="px-2">
                         {view === 'login' && <LoginView />}
-                        {view === 'student_dash' && currentUser?.role === 'student' && <StudentDashboard />}
-                        {view === 'form' && currentUser?.role === 'student' && <FeedbackForm />}
-                        {view === 'teacher_dash' && currentUser?.role === 'teacher' && <TeacherDashboard />}
+                        {view === 'student_dash' && currentUser && currentUser.role === 'student' && <StudentDashboard />}
+                        {view === 'form' && currentUser && currentUser.role === 'student' && <FeedbackForm />}
+                        {view === 'teacher_dash' && currentUser && currentUser.role === 'teacher' && <TeacherDashboard />}
                     </main>
                 </div>
             );
         };
 
+        let firebaseLoadAttempts = 0;
         const initRender = () => {
-            if (!window.Firebase) { setTimeout(initRender, 50); return; }
+            // 이전에 수정한 코드에서 이 부분이 클라우드 통신을 너무 빨리 끊어버리는 원인이었습니다.
+            // typeof firebase === 'undefined' 로 다시 완벽하게 복구했습니다.
+            if (typeof firebase === 'undefined') { 
+                firebaseLoadAttempts++;
+                if (firebaseLoadAttempts > 40) { // 약 2초 경과 시 강제로 화면 렌더링
+                    console.warn("클라우드 서버 모듈 로딩 지연됨. 오프라인 모드로 우회하여 접속합니다.");
+                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                    root.render(React.createElement(App, { bypassFirebase: true }));
+                    return;
+                }
+                setTimeout(initRender, 50); 
+                return; 
+            }
             const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
+            root.render(React.createElement(App, { bypassFirebase: false }));
         };
         initRender();
     </script>
