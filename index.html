@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone@7.28.5/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script>
         // 최신 Babel의 자동 런타임(automatic) 충돌을 방지하고 브라우저 환경에서 작동하도록 클래식 런타임 설정 추가
         Babel.registerPreset('react-classic', {
@@ -126,7 +126,6 @@
 
             useEffect(() => {
                 const setupFirebase = async () => {
-                    // 클라우드 객체(firebase)가 완전히 다운로드되었는지 정확하게 확인합니다.
                     if (bypassFirebase || typeof firebase === 'undefined') {
                         setDb(null);
                         setIsFirebaseReady(true);
@@ -364,7 +363,7 @@
                                         {isCompleted ? (
                                             <div className="text-sm text-gray-600 bg-white p-3 rounded-lg bg-opacity-60 border border-green-100">
                                                 <p><span className="text-gray-400 mr-2">수업일자</span> {status.date}</p>
-                                                <p className="mt-1"><span className="text-gray-400 mr-2">{subjects.includes(subject) ? '상담진행' : '우선상담'}</span> {status.wantsCounseling ? <span className={subjects.includes(subject) ? "text-blue-600 font-bold" : "text-red-500 font-bold"}>{subjects.includes(subject) ? '예' : '희망함'}</span> : (subjects.includes(subject) ? '아니오' : '희망안함')}</p>
+                                                <p className="mt-1"><span className="text-gray-400 mr-2">상담진행</span> <span className={status.wantsCounseling ? "text-blue-600 font-bold" : "text-red-500 font-bold"}>{status.wantsCounseling ? '예' : '아니오'}</span></p>
                                                 
                                                 <button onClick={() => { setSelectedSubject(subject); setView('form'); }} className="w-full mt-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-1.5 rounded-md transition text-xs flex items-center justify-center gap-1 shadow-sm">
                                                     <Icons.Edit size={14} /> 수정하기
@@ -407,6 +406,7 @@
                                         
                                         {isCompleted ? (
                                             <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-indigo-100">
+                                                <p className="mb-2"><span className="text-gray-400 mr-2">우선상담</span> <span className={status.wantsCounseling ? "text-red-500 font-bold" : "text-blue-600 font-bold"}>{status.wantsCounseling ? '희망함' : '희망안함'}</span></p>
                                                 <button onClick={(e) => { e.stopPropagation(); handleSubjectClick(subject); }} className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-1.5 rounded-md transition text-xs flex items-center justify-center gap-1 shadow-sm">
                                                     <Icons.Edit size={14} /> 수정하기
                                                 </button>
@@ -637,7 +637,14 @@
                         const firstDate = profile.firstDate || '-';
                         
                         const hasAllMandatory = mandatorySubjects.every(sub => group.fbs[sub] !== undefined);
-                        const hasPendingCounseling = Object.values(group.fbs).some(fb => fb.subject !== 'profile' && fb.wantsCounseling === true && fb.status !== 'completed');
+                        
+                        // 변경된 로직: 교과목은 false(아니오)일때, 특별과목은 true(희망함)일때 처리가 필요한 것으로 판단
+                        const hasPendingCounseling = Object.values(group.fbs).some(fb => {
+                            if (fb.subject === 'profile' || fb.subject === '관리자_상태') return false;
+                            const isSpecial = fb.subject === '매일깨기' || fb.subject === '원장님 상담';
+                            const needsAttention = isSpecial ? fb.wantsCounseling === true : fb.wantsCounseling === false;
+                            return needsAttention && fb.status !== 'completed';
+                        });
                         
                         // 관리자 강제 처리/되돌리기 상태 확인
                         const adminStatusDoc = group.fbs['관리자_상태']; 
@@ -738,8 +745,12 @@
 
                     let btnClass = "w-full flex flex-col items-center justify-center text-[11px] py-1.5 rounded shadow-sm transition leading-tight ";
                     let text = "";
+                    
+                    // 핵심 수정 로직: 교과목과 특별과목의 판별 기준 분리
+                    const isSpecial = subject === '매일깨기' || subject === '원장님 상담';
+                    const needsAttention = isSpecial ? fb.wantsCounseling === true : fb.wantsCounseling === false;
 
-                    if (fb.wantsCounseling) {
+                    if (needsAttention) {
                         if (fb.status === 'completed') {
                             btnClass += "bg-gray-200 hover:bg-gray-300 text-gray-600"; text = "처리완료";
                         } else {
@@ -937,9 +948,14 @@
                                             <span className="text-gray-500 font-medium">
                                                 {selectedFeedback.subject !== '원장님 상담' && selectedFeedback.subject !== '매일깨기' ? '과목상담 진행 여부' : '상담 희망 여부'}
                                             </span>
-                                            <span className={`font-bold ${selectedFeedback.wantsCounseling ? 'text-red-600 flex items-center gap-1' : 'text-gray-500'}`}>
+                                            {/* 수정 로직: 팝업 안에서도 일반과목과 특별과목의 색상을 직관적으로 맞춤 */}
+                                            <span className={`font-bold ${
+                                                (selectedFeedback.subject === '원장님 상담' || selectedFeedback.subject === '매일깨기') 
+                                                    ? (selectedFeedback.wantsCounseling ? 'text-red-600 flex items-center gap-1' : 'text-blue-600') 
+                                                    : (selectedFeedback.wantsCounseling ? 'text-blue-600 flex items-center gap-1' : 'text-red-600 flex items-center gap-1')
+                                            }`}>
                                                 {selectedFeedback.subject !== '원장님 상담' && selectedFeedback.subject !== '매일깨기' 
-                                                    ? (selectedFeedback.wantsCounseling ? '예 (진행됨)' : '아니오') 
+                                                    ? (selectedFeedback.wantsCounseling ? '예 (진행됨)' : '아니오 (미진행)') 
                                                     : (selectedFeedback.wantsCounseling ? '희망함 (긴급)' : '희망안함')}
                                             </span>
                                         </div>
@@ -1015,8 +1031,6 @@
 
         let firebaseLoadAttempts = 0;
         const initRender = () => {
-            // 이전에 수정한 코드에서 이 부분이 클라우드 통신을 너무 빨리 끊어버리는 원인이었습니다.
-            // typeof firebase === 'undefined' 로 다시 완벽하게 복구했습니다.
             if (typeof firebase === 'undefined') { 
                 firebaseLoadAttempts++;
                 if (firebaseLoadAttempts > 40) { // 약 2초 경과 시 강제로 화면 렌더링
